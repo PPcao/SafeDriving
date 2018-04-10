@@ -65,6 +65,9 @@ public class LoginLayoutActivity extends AppCompatActivity {
         /**
          * 监听EditText控件，都不为空时，登录按钮才可点击。
          */
+        if(! TextUtils.isEmpty(accountEdit.getText()) && !TextUtils.isEmpty(passwordEdit.getText())){
+            loginButton.setEnabled(Boolean.TRUE);
+        }
         accountEdit.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {

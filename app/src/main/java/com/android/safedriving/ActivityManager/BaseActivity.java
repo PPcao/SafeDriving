@@ -1,7 +1,9 @@
-package com.android.safedriving;
+package com.android.safedriving.ActivityManager;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+
+import com.android.safedriving.ActivityManager.ActivityCollector;
 
 /**
  * BaseActivity类功能：

@@ -1,4 +1,4 @@
-package com.android.safedriving;
+package com.android.safedriving.HttpUtil;
 
 /**
  * 客户端请求的IP地址。

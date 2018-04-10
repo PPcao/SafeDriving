@@ -1,4 +1,4 @@
-package com.android.safedriving;
+package com.android.safedriving.ActivityManager;
 
 import android.app.Activity;
 

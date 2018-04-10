@@ -1,7 +1,9 @@
 package com.android.safedriving;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
@@ -10,6 +12,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -34,17 +37,30 @@ public class LoginLayoutActivity extends AppCompatActivity {
     private EditText accountEdit;
     private EditText passwordEdit;
     private Button loginButton;
-//    private TextView resultTV;
+    private CheckBox remmberPasswordCheckBox;
+
+    private SharedPreferences pref;
+    private SharedPreferences.Editor editor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.login_layout);
 
+        pref = PreferenceManager.getDefaultSharedPreferences(this);
         accountEdit = (EditText) findViewById(R.id.loginAccount_editText);
         passwordEdit = (EditText) findViewById(R.id.loginPassword_editText);
         loginButton = (Button) findViewById(R.id.login_button);
-//        resultTV = (TextView) findViewById(R.id.result_textView) ;
+        remmberPasswordCheckBox = (CheckBox) findViewById(R.id.rememberPassword_checkBox);
+
+        boolean isRemember = pref.getBoolean("remember_password",false);
+        if(isRemember){
+            String account = pref.getString("account","");
+            String password = pref.getString("password","");
+            accountEdit.setText(account);
+            passwordEdit.setText(password);
+            remmberPasswordCheckBox.setChecked(true);
+        }
 
         /**
          * 监听EditText控件，都不为空时，登录按钮才可点击。
@@ -115,7 +131,16 @@ public class LoginLayoutActivity extends AppCompatActivity {
 //                    Toast.makeText(LoginLayoutActivity.this,"账号或密码错误，请重新输入！",Toast.LENGTH_SHORT).show();
 //                }
                 if(! isEmpty(account) && !isEmpty(password)){
-                    Toast.makeText(LoginLayoutActivity.this,"正在登录...",Toast.LENGTH_SHORT).show();
+                    editor = pref.edit();
+                    if(remmberPasswordCheckBox.isChecked()){
+                        editor.putBoolean("remember_password", true);
+                        editor.putString("account", account);
+                        editor.putString("password", password);
+                    }else{
+                        editor.clear();
+                    }
+                    editor.apply();
+//                    Toast.makeText(LoginLayoutActivity.this,"正在登录...",Toast.LENGTH_SHORT).show();
                     login(account,password);
                 }
             }

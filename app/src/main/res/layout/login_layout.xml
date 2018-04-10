@@ -51,9 +51,19 @@
         android:layout_marginTop="217dp"
         android:text="登录"
         android:enabled="false"/>
+
     <TextView
         android:id="@+id/result_textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignBottom="@+id/login_button"/>
+
+    <CheckBox
+        android:id="@+id/rememberPassword_checkBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/login_button"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="74dp"
+        android:text="记住密码" />
 </RelativeLayout>

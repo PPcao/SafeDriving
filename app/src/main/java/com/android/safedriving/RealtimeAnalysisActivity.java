@@ -6,7 +6,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Environment;
+import android.graphics.Color;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -23,6 +23,17 @@ import android.widget.Toast;
 
 import com.android.safedriving.BluetoothHelper.BluetoothService;
 import com.android.safedriving.BluetoothHelper.DeviceListActivity;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.highlight.Highlight;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
+import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -41,7 +52,7 @@ import java.util.Set;
  * 3.将从监控仪接收的数据实时显示在此页面上。
  * 4.将从监控仪接收的数据上传到服务器，留备下一个历史数据分析使用。
  */
-public class RealtimeAnalysisActivity extends AppCompatActivity {
+public class RealtimeAnalysisActivity extends AppCompatActivity implements OnChartValueSelectedListener {
 
     private static final String TAG = "RAnalysisActivity";
     private static final boolean DEBUG = false;
@@ -56,8 +67,9 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
     private static final int REQUEST_CONNECT_DEVICE = 1;
     private static final int REQUEST_ENABLE_BT = 2;
 
-    private TextView RecDataView;
+//    private TextView RecDataView;
     private Button ClearWindow;
+    private LineChart mChart;
 
     private String mConnectedDeviceName = null;
     private BluetoothAdapter mBluetoohAdapter = null;
@@ -83,9 +95,11 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.realtime_analysis_layout);
 
-        RecDataView = (TextView) findViewById(R.id.Rec_Text_show);
+        //RecDataView = (TextView) findViewById(R.id.Rec_Text_show);
         ClearWindow = (Button) findViewById(R.id.ClearWindow);
         setupListener();
+        mChart = (LineChart) findViewById(R.id.realtimelinechart);
+        mChart.setOnChartValueSelectedListener(this);
 
         mBluetoohAdapter = BluetoothAdapter.getDefaultAdapter();
         if(mBluetoohAdapter == null){
@@ -94,6 +108,57 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
             return;
         }
         verifyStoragePermissions(this);
+
+        /**
+         * 以下设置为绘图做准备
+         */
+        // enable description text
+        mChart.getDescription().setEnabled(true);
+
+        // enable touch gestures
+        mChart.setTouchEnabled(true);
+
+        // enable scaling and dragging
+        mChart.setDragEnabled(true);
+        mChart.setScaleEnabled(true);
+        mChart.setDrawGridBackground(false);
+
+        // if disabled, scaling can be done on x- and y-axis separately
+        mChart.setPinchZoom(true);
+
+        // set an alternative background color
+        mChart.setBackgroundColor(Color.LTGRAY);
+
+        LineData data = new LineData();
+        data.setValueTextColor(Color.WHITE);
+
+        // add empty data
+        mChart.setData(data);
+
+        // get the legend (only possible after setting data)
+        Legend l = mChart.getLegend();
+
+        // modify the legend ...
+        l.setForm(Legend.LegendForm.LINE);
+//        l.setTypeface(mTfLight);
+        l.setTextColor(Color.WHITE);
+
+        XAxis xl = mChart.getXAxis();
+//        xl.setTypeface(mTfLight);
+        xl.setTextColor(Color.WHITE);
+        xl.setDrawGridLines(false);
+        xl.setAvoidFirstLastClipping(true);
+        xl.setEnabled(true);
+
+        YAxis leftAxis = mChart.getAxisLeft();
+//        leftAxis.setTypeface(mTfLight);
+        leftAxis.setTextColor(Color.WHITE);
+        leftAxis.setAxisMaximum(0.4f);
+        leftAxis.setAxisMinimum(0f);
+        leftAxis.setDrawGridLines(true);
+
+        YAxis rightAxis = mChart.getAxisRight();
+        rightAxis.setEnabled(false);
     }
 
     @Override
@@ -112,39 +177,52 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
 
     // 用于从线程获取信息的Handler对象
     private final Handler mHandler = new Handler(){
-        StringBuffer sb=new StringBuffer();
+        StringBuffer sb = new StringBuffer();
         byte[] bs;
         float sWidth;
-        int b,i,lineWidth=0,align_i=0;
+        int i;
+        int lineWidth = 0;
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case REC_DATA:
                     sb.setLength(0);
-                    bs=(byte[])msg.obj;
-                    char[] c=new char[msg.arg1];
-                    for(i=0;i<msg.arg1;i++){
-                        c[i]=(char)(bs[i]&0xff);
-                        sWidth=RecDataView.getPaint().measureText(c,i,1);
-                        lineWidth+=sWidth;
-                        if(lineWidth>RecDataView.getWidth()){
-                            lineWidth=(int)sWidth;
-                            sb.append('\n');
-                        }
-                        if(c[i]=='\n')lineWidth=0;
+                    bs = (byte[]) msg.obj;
+
+//                    System.out.println(bs);
+
+                    char[] c = new char[msg.arg1];
+
+                    for(i = 0; i < msg.arg1 ; i++){
+                        c[i] = (char) (bs[i] & 0xff);
+//                        sWidth = RecDataView.getPaint().measureText(c,i,1);
+////                        lineWidth += sWidth;
+////
+////                        if(lineWidth > RecDataView.getWidth()){
+////                            lineWidth = (int) sWidth;
+////                            sb.append('\n');
+////                        }
+////                        if(c[i] == '\n'){
+////                            lineWidth = 0;
+////                        }
                         sb.append(c[i]);
-                    }
-                    RecDataView.append(sb);
+                    }//处理蓝牙设备接收的数据完毕
+
+                    System.out.println(sb);
+                    //RecDataView.append(sb);
+                    addEntry(Float.parseFloat(sb.toString()));
                     break;
                 case CONNECTED_DEVICE_NAME:
-                    // 提示已连接设备名
-                    mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
+                    mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);// 提示已连接设备名
                     Toast.makeText(getApplicationContext(), "已连接到" + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
                     break;
                 case BT_TOAST:
-                    if(mConnectedDeviceName!=null)
-                        Toast.makeText(getApplicationContext(), "与"+mConnectedDeviceName + msg.getData().getString(TOAST),Toast.LENGTH_SHORT).show();
-                    else Toast.makeText(getApplicationContext(), "与"+target_device_name + msg.getData().getString(TOAST),Toast.LENGTH_SHORT).show();
+                    if(mConnectedDeviceName!=null){
+                        Toast.makeText(getApplicationContext(), "与" + mConnectedDeviceName + msg.getData().getString(TOAST),Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(getApplicationContext(), "与" + target_device_name + msg.getData().getString(TOAST),Toast.LENGTH_SHORT).show();
+                    }
                     mConnectedDeviceName=null;
                     break;
             }
@@ -167,7 +245,8 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
         public void onClick(View view) {
             switch (view.getId()){
                 case R.id.ClearWindow:
-                    RecDataView.setText("");
+//                    RecDataView.setText("");
+                    mChart.clearValues();
                     break;
             }
         }
@@ -183,8 +262,13 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+
         if(DEBUG) {
             Log.i(TAG, "onPause");
+        }
+
+        if (thread != null) {
+            thread.interrupt();
         }
     }
 
@@ -266,5 +350,100 @@ public class RealtimeAnalysisActivity extends AppCompatActivity {
                 return true;
         }
         return  false;
+    }
+
+    private Thread thread;
+    private void addEntry(final float sb){
+
+        System.out.println("addEntry "+sb);
+
+//        if (thread != null) {
+//            thread.interrupt();
+//        }
+
+        final Runnable runnable = new Runnable() {
+
+            @Override
+            public void run() {
+                LineData data = mChart.getData();
+
+                if (data != null) {
+
+                    ILineDataSet set = data.getDataSetByIndex(0);
+                    // set.addEntry(...); // can be called as well
+
+                    if (set == null) {
+                        set = createSet();
+                        data.addDataSet(set);
+                    }
+
+                    data.addEntry(new Entry(set.getEntryCount(), sb), 0);
+                    data.notifyDataChanged();
+
+                    System.out.println("addEntry done");
+
+                    // let the chart know it's data has changed
+                    mChart.notifyDataSetChanged();
+
+                    // limit the number of visible entries
+                    mChart.setVisibleXRangeMaximum(120);
+                    // mChart.setVisibleYRange(30, AxisDependency.LEFT);
+
+                    // move to the latest entry
+                    mChart.moveViewToX(data.getEntryCount());
+
+                    // this automatically refreshes the chart (calls invalidate())
+                    // mChart.moveViewTo(data.getXValCount()-7, 55f,
+                    // AxisDependency.LEFT);
+                }
+            }
+        };
+
+        thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true){
+                    runOnUiThread(runnable);
+
+                    try {
+                        Thread.sleep(25);
+                    } catch (InterruptedException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        thread.start();
+    }
+
+    private LineDataSet createSet() {
+
+        LineDataSet set = new LineDataSet(null, "Dynamic Data");
+
+        set.setAxisDependency(YAxis.AxisDependency.LEFT);
+        set.setColor(ColorTemplate.getHoloBlue());
+        set.setCircleColor(Color.WHITE);
+        set.setLineWidth(2f);
+        set.setCircleRadius(4f);
+        set.setFillAlpha(65);
+        set.setFillColor(ColorTemplate.getHoloBlue());
+        set.setHighLightColor(Color.rgb(244, 117, 117));
+        set.setValueTextColor(Color.BLACK);
+        set.setValueTextSize(9f);
+        set.setDrawValues(false);
+
+        return set;
+    }
+
+    @Override
+    public void onValueSelected(Entry e, Highlight h) {
+        Log.i("Entry selected", e.toString());
+    }
+
+    @Override
+    public void onNothingSelected() {
+        Log.i("Nothing selected", "Nothing selected.");
     }
 }

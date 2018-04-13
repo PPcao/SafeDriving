@@ -390,6 +390,7 @@ public class BluetoothService {
          */
         public void write(byte[] buffer){
             try {
+                buffer =null;
                 mOutputStream.write(buffer);
             }catch (IOException e){
                 Log.e(TAG,"Exception during write", e);

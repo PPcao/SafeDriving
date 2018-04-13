@@ -3,11 +3,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!--
         <TextView
             android:id="@+id/Rec_Text_show"
             android:layout_width="match_parent"
@@ -21,13 +22,19 @@
             android:scrollbars="vertical"
             android:textIsSelectable="true"
             android:typeface="normal" />
+            -->
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/realtimelinechart"
+            android:layout_width="match_parent"
+            android:layout_height="300dp" />
 
         <Button
             android:id="@+id/ClearWindow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
+            android:layout_alignParentBottom="true"
             android:text="清窗" />
-    </LinearLayout>
+    </RelativeLayout>
 
 </RelativeLayout>

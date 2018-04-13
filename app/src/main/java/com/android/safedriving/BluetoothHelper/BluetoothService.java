@@ -359,7 +359,7 @@ public class BluetoothService {
             if(DEBUG){
                 Log.e(TAG,"Begin mConnectedThread");
             }
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[32];
             int bytes;
 
             while (true){

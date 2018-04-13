@@ -402,7 +402,14 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         thread = new Thread(new Runnable() {
             @Override
             public void run() {
-                while (true){
+
+                /**
+                 * 错误：刷新UI的子线程放于while{}循环中，且未等待子线程结束，
+                 *      导致每次调用addEntry()添加数据点时，出现添加一个数据点，多次将数据点绘入图中的结果。
+                 * 解决：
+                 *      1.去掉循环。
+                 *      2.调用等待子线程结束的方法。
+                 */
                     runOnUiThread(runnable);
 
                     try {
@@ -411,11 +418,17 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
                         // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
-                }
+
             }
         });
 
         thread.start();
+        try {
+            thread.join();
+        }catch (Exception e){
+
+        }
+
     }
 
     private LineDataSet createSet() {

@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -23,6 +24,7 @@ import android.widget.Toast;
 
 import com.android.safedriving.BluetoothHelper.BluetoothService;
 import com.android.safedriving.BluetoothHelper.DeviceListActivity;
+import com.android.safedriving.HttpUtil.HttpUrlConstant;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
@@ -35,12 +37,23 @@ import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.Set;
+
+import static android.net.wifi.WifiConfiguration.Status.strings;
 
 /**
  * 前提：用户此前已经使用蓝牙配对了监控仪。
@@ -211,7 +224,10 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
                     System.out.println(sb);
                     //RecDataView.append(sb);
-                    addEntry(Float.parseFloat(sb.toString()));
+                    Float upData = Float.parseFloat(sb.toString());
+                    uploadDataToServer(upData);
+                    addEntry(upData);
+
                     break;
                 case CONNECTED_DEVICE_NAME:
                     mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);// 提示已连接设备名
@@ -459,4 +475,84 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     public void onNothingSelected() {
         Log.i("Nothing selected", "Nothing selected.");
     }
+
+    private void uploadDataToServer(Float ear) {
+        Intent intent = this.getIntent();
+        Bundle bundle = intent.getExtras();
+        String account = bundle.getString("account");
+//        Calendar nowTime = Calendar.getInstance();
+
+        Date currentTime = new Date();
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String dateString = formatter.format(currentTime);
+
+        System.out.println(dateString);
+
+        String url = HttpUrlConstant.uploadDataURL + "?DAccount=" + account + "&time=" + dateString + "&ear=" + ear;
+
+        new uploadDataAsyncTask().execute(url);
+    }
+
+    public class uploadDataAsyncTask extends AsyncTask<String,Integer,String>{
+        @Override
+        protected void onPreExecute() {
+            Log.d("RAnalysisActivity","onPreExecute");
+        }
+
+        /**
+         *
+         * @param strings params是一个数组，是AsyncTask在激活运行时调用的execute()方法传入的参数。
+         * @return
+         */
+        @Override
+        protected String doInBackground(String... strings) {
+            Log.d("RAnalysisActivity","doInBackground");
+
+            HttpURLConnection connection = null;
+            StringBuilder response = new StringBuilder();
+            try{
+                URL url = new URL(strings[0]);
+                connection = (HttpURLConnection)url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(80000);
+                connection.setReadTimeout(80000);
+                InputStream in = connection.getInputStream();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+                String line;
+                while ((line = reader.readLine() )!= null){
+                    response.append(line);
+                }
+            }catch (MalformedURLException e){
+                e.printStackTrace();
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+
+            return response.toString();//此处的返回值作为参数传入onPostExecute()
+        }
+
+        /**
+         * 本方法在UI线程中执行，典型用法是更新进度条。
+         * @param values
+         */
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+
+        }
+
+        /**
+         * 本方法在UI线程中运行，可直接操作UI元素。
+         * @param s
+         */
+        @Override
+        protected void onPostExecute(String s) {
+            Log.d("RAnalysisActivity","onPostExecute");
+
+            if(s.equals("code:300")){
+                Toast.makeText(RealtimeAnalysisActivity.this,"上传数据失败",Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
 }

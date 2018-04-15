@@ -42,6 +42,8 @@ public class LoginLayoutActivity extends AppCompatActivity {
     private SharedPreferences pref;
     private SharedPreferences.Editor editor;
 
+    public String getAccount;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -122,6 +124,7 @@ public class LoginLayoutActivity extends AppCompatActivity {
                  */
                 String account = accountEdit.getText().toString();
                 String password = passwordEdit.getText().toString();
+                getAccount = account;
 
                 /**
                  * 检验账号和密码的合法性。
@@ -145,6 +148,7 @@ public class LoginLayoutActivity extends AppCompatActivity {
                     editor.apply();
 //                    Toast.makeText(LoginLayoutActivity.this,"正在登录...",Toast.LENGTH_SHORT).show();
                     login(account,password);
+
                 }
             }
         });
@@ -220,7 +224,11 @@ public class LoginLayoutActivity extends AppCompatActivity {
             Log.d("LoginLayoutActivity","onPostExecute");
 //            System.out.println(s);
             if(s.equals("code:200;message:登陆成功")){
+
                 Intent intent = new Intent(LoginLayoutActivity.this,RealtimeAnalysisActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putString("account",getAccount);
+                intent.putExtras(bundle);
                 startActivity(intent);
             }else {
                 Toast.makeText(LoginLayoutActivity.this,"登录失败，请输入正确的账号和密码！",Toast.LENGTH_SHORT).show();

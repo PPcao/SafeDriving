@@ -229,13 +229,17 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 ////                        }
                         sb.append(c[i]);
                     }//处理蓝牙设备接收的数据完毕
-
-                    System.out.println(sb);
+                    String sbtostring = sb.toString();
+					String[] split = sbtostring.split("-");
+					String ear = split[0];
+					String flag = split[1];
+                    //System.out.println(sb);
                     //RecDataView.append(sb);
                     try{
-                        Float upData = Float.parseFloat(sb.toString());
-                        uploadDataToServer(upData);
-                        addEntry(upData);
+                        Float upDataear = Float.parseFloat(ear);
+						Float upDataflag = Float.parseFloat(flag);
+                        uploadDataToServer(upDataear,upDataflag);
+                        addEntry(upDataear);
                     }catch (Exception e){
                         e.printStackTrace();
                     }
@@ -494,7 +498,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         Log.i("Nothing selected", "Nothing selected.");
     }
 
-    private void uploadDataToServer(Float ear) {
+    private void uploadDataToServer(Float ear, Float flag) {
         Intent intent = this.getIntent();
         Bundle bundle = intent.getExtras();
         String account = bundle.getString("account");
@@ -506,7 +510,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
 //        System.out.println(dateString);
 
-        String url = HttpUrlConstant.uploadDataURL + "?DAccount=" + account + "&time=" + dateString + "&ear=" + ear;
+        String url = HttpUrlConstant.uploadDataURL + "?DAccount=" + account + "&time=" + dateString + "&ear=" + ear + "&flag=" + flag;
 
         new uploadDataAsyncTask().execute(url);
     }

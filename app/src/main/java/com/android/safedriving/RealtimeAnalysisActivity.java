@@ -48,9 +48,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import static android.net.wifi.WifiConfiguration.Status.strings;
@@ -82,6 +84,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
 //    private TextView RecDataView;
     private Button ClearWindow;
+    private Button LocateButton;
     private LineChart mChart;
 
     private String mConnectedDeviceName = null;
@@ -110,6 +113,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
         //RecDataView = (TextView) findViewById(R.id.Rec_Text_show);
         ClearWindow = (Button) findViewById(R.id.ClearWindow);
+        LocateButton = (Button) findViewById(R.id.locate_button);
         setupListener();
         mChart = (LineChart) findViewById(R.id.realtimelinechart);
         mChart.setOnChartValueSelectedListener(this);
@@ -145,6 +149,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         LineData data = new LineData();
         data.setValueTextColor(Color.WHITE);
 
+
         // add empty data
         mChart.setData(data);
 
@@ -156,19 +161,22 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //        l.setTypeface(mTfLight);
         l.setTextColor(Color.WHITE);
 
+
         XAxis xl = mChart.getXAxis();
 //        xl.setTypeface(mTfLight);
         xl.setTextColor(Color.WHITE);
         xl.setDrawGridLines(false);
         xl.setAvoidFirstLastClipping(true);
         xl.setEnabled(true);
+        xl.setPosition(XAxis.XAxisPosition.BOTTOM);
 
         YAxis leftAxis = mChart.getAxisLeft();
 //        leftAxis.setTypeface(mTfLight);
         leftAxis.setTextColor(Color.WHITE);
-        leftAxis.setAxisMaximum(0.4f);
-        leftAxis.setAxisMinimum(0f);
+        leftAxis.setAxisMaximum(0.8f);
+        leftAxis.setAxisMinimum(0.0f);
         leftAxis.setDrawGridLines(true);
+//        leftAxis.setInverted(true);//y轴向下为正
 
         YAxis rightAxis = mChart.getAxisRight();
         rightAxis.setEnabled(false);
@@ -192,9 +200,9 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     private final Handler mHandler = new Handler(){
         StringBuffer sb = new StringBuffer();
         byte[] bs;
-        float sWidth;
+//        float sWidth;
         int i;
-        int lineWidth = 0;
+//        int lineWidth = 0;
 
         @Override
         public void handleMessage(Message msg) {
@@ -224,9 +232,13 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
                     System.out.println(sb);
                     //RecDataView.append(sb);
-                    Float upData = Float.parseFloat(sb.toString());
-                    uploadDataToServer(upData);
-                    addEntry(upData);
+                    try{
+                        Float upData = Float.parseFloat(sb.toString());
+                        uploadDataToServer(upData);
+                        addEntry(upData);
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
 
                     break;
                 case CONNECTED_DEVICE_NAME:
@@ -264,6 +276,10 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //                    RecDataView.setText("");
                     mChart.clearValues();
                     break;
+                case R.id.locate_button:
+                    Intent intent = new Intent(RealtimeAnalysisActivity.this,LocateActivity.class);
+                    System.out.println("准备跳转到LocateActivity");
+                    startActivity(intent);
             }
         }
     };
@@ -273,6 +289,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
      */
     private void setupListener(){
         ClearWindow.setOnClickListener(ButtonClickListener);
+        LocateButton.setOnClickListener(ButtonClickListener);
     }
 
     @Override
@@ -428,12 +445,12 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
                  */
                     runOnUiThread(runnable);
 
-                    try {
-                        Thread.sleep(25);
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
+//                    try {
+//                        Thread.sleep(25);
+//                    } catch (InterruptedException e) {
+//                        // TODO Auto-generated catch block
+//                        e.printStackTrace();
+//                    }
 
             }
         });
@@ -449,19 +466,20 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
     private LineDataSet createSet() {
 
-        LineDataSet set = new LineDataSet(null, "Dynamic Data");
+        LineDataSet set = new LineDataSet(null, "EAR");
 
         set.setAxisDependency(YAxis.AxisDependency.LEFT);
         set.setColor(ColorTemplate.getHoloBlue());
         set.setCircleColor(Color.WHITE);
         set.setLineWidth(2f);
-        set.setCircleRadius(4f);
+        set.setCircleRadius(2f);
         set.setFillAlpha(65);
         set.setFillColor(ColorTemplate.getHoloBlue());
         set.setHighLightColor(Color.rgb(244, 117, 117));
         set.setValueTextColor(Color.BLACK);
         set.setValueTextSize(9f);
         set.setDrawValues(false);
+        set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
 
         return set;
     }
@@ -486,7 +504,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         String dateString = formatter.format(currentTime);
 
-        System.out.println(dateString);
+//        System.out.println(dateString);
 
         String url = HttpUrlConstant.uploadDataURL + "?DAccount=" + account + "&time=" + dateString + "&ear=" + ear;
 

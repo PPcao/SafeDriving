@@ -35,6 +35,15 @@
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:text="清窗" />
+
+        <Button
+            android:id="@+id/locate_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="12dp"
+            android:text="定位" />
     </RelativeLayout>
 
 </RelativeLayout>

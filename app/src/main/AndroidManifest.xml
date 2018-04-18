@@ -54,8 +54,6 @@
             android:label="蓝牙设备列表"
             android:theme="@style/myTitle"
             android:screenOrientation="portrait"/>
-        <activity android:name=".LocateActivity"
-            android:screenOrientation="portrait"></activity>
     </application>
 
 </manifest>

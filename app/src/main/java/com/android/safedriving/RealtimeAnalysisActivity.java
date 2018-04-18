@@ -7,10 +7,13 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.MediaPlayer;
+import android.media.MediaPlayer.OnPreparedListener;
 import android.os.AsyncTask;
+import android.os.Environment;
 import android.os.Message;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Handler;
 import android.os.Bundle;
@@ -19,12 +22,19 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.safedriving.BluetoothHelper.BluetoothService;
 import com.android.safedriving.BluetoothHelper.DeviceListActivity;
 import com.android.safedriving.HttpUtil.HttpUrlConstant;
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
+import com.baidu.mapapi.SDKInitializer;
+import com.baidu.mapapi.model.LatLng;
+import com.baidu.mapapi.utils.poi.BaiduMapPoiSearch;
+import com.baidu.mapapi.utils.poi.PoiParaOption;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
@@ -39,8 +49,6 @@ import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -49,13 +57,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-
-import static android.net.wifi.WifiConfiguration.Status.strings;
 
 /**
  * 前提：用户此前已经使用蓝牙配对了监控仪。
@@ -72,6 +75,9 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     private static final String TAG = "RAnalysisActivity";
     private static final boolean DEBUG = false;
 
+    public Float upDataflag;
+    public LineDataSet set = new LineDataSet(null, "EAR");
+
     public static final int REC_DATA = 2;
     public static final int CONNECTED_DEVICE_NAME = 4;
     public static final int BT_TOAST = 5;
@@ -85,14 +91,24 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //    private TextView RecDataView;
     private Button ClearWindow;
     private Button LocateButton;
+    private Button OverlookButton;
     private LineChart mChart;
 
     private String mConnectedDeviceName = null;
     private BluetoothAdapter mBluetoohAdapter = null;
     private BluetoothService mConnectService = null;
 
+    // 定位相关
+    public LocationClient mLocationClient;
+    public double mCurrentLat ;
+    public double mCurrentLog ;
+
+    //播放音频相关
+    public MediaPlayer mMediaPlayer;
+
+
     /**
-     * 验证我们是否能进行SD卡的读写操作
+     * 验证本应用是否能进行SD卡的读写操作
      */
     private static final int REQUEST_EXTERNAL_STORAG = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -106,17 +122,36 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         }
     }
 
+//    /**
+//     * 验证本应用是否允许进行播放音频
+//     * @param activity
+//     */
+//    public void verifyMediaPlayerPermissions(Activity activity){
+//        if(ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED){
+//            ActivityCompat.requestPermissions(activity,new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
+//        }else{
+//            initMediaPlayer();
+//        }
+//    }
+
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        SDKInitializer.initialize(getApplicationContext());
+        mLocationClient = new LocationClient(getApplicationContext());
+        mLocationClient.registerLocationListener(new MyLocationListener());
         setContentView(R.layout.realtime_analysis_layout);
 
         //RecDataView = (TextView) findViewById(R.id.Rec_Text_show);
         ClearWindow = (Button) findViewById(R.id.ClearWindow);
         LocateButton = (Button) findViewById(R.id.locate_button);
+        OverlookButton = (Button) findViewById(R.id.overlook_button);
         setupListener();
         mChart = (LineChart) findViewById(R.id.realtimelinechart);
         mChart.setOnChartValueSelectedListener(this);
+
+        //播放音频相关
+        mMediaPlayer = new MediaPlayer().create(this,R.raw.alarm);
 
         mBluetoohAdapter = BluetoothAdapter.getDefaultAdapter();
         if(mBluetoohAdapter == null){
@@ -125,10 +160,26 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
             return;
         }
         verifyStoragePermissions(this);
+        initDrawChart();
+        initLocationSettings();
+    }
 
-        /**
-         * 以下设置为绘图做准备
-         */
+//    public void initMediaPlayer(){
+//        try{
+//            File file = new File(Environment.getExternalStorageDirectory(),"Delacey - Dream It Possible.mp3");
+//            mediaPlayer.setDataSource(file.getPath());
+//            mediaPlayer.setOnPreparedListener(preparedListener);
+//            mediaPlayer.prepareAsync();
+//            System.out.println("正在准备音频文件....");
+//        }catch (Exception e){
+//            e.printStackTrace();
+//        }
+//    }
+
+    /**
+     * 为绘图做准备
+     */
+    private void initDrawChart(){
         // enable description text
         mChart.getDescription().setEnabled(true);
 
@@ -182,6 +233,76 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         rightAxis.setEnabled(false);
     }
 
+    /**
+     * 初始化定位
+     */
+    private void initLocationSettings(){
+        List<String> permissionList=new ArrayList<>();
+        if(ContextCompat.checkSelfPermission(RealtimeAnalysisActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)!= PackageManager.PERMISSION_GRANTED){
+            permissionList.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if(ContextCompat.checkSelfPermission(RealtimeAnalysisActivity.this, Manifest.permission.READ_PHONE_STATE)!= PackageManager.PERMISSION_GRANTED){
+            permissionList.add(Manifest.permission.READ_PHONE_STATE);
+        }
+        if(ContextCompat.checkSelfPermission(RealtimeAnalysisActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
+            permissionList.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        }
+        if(!permissionList.isEmpty()){
+            String[] perimissions = permissionList.toArray(new String[permissionList.size()]);
+            ActivityCompat.requestPermissions(RealtimeAnalysisActivity.this,perimissions,1);
+        }else {
+            requestLocation();
+        }
+    }
+
+    private void requestLocation(){
+        initLocation();
+        mLocationClient.start();
+    }
+
+    private void initLocation(){
+        LocationClientOption option=new LocationClientOption();
+        option.setScanSpan(1000);
+        option.setIsNeedAddress(true);
+        option.setLocationMode(LocationClientOption.LocationMode.Hight_Accuracy);
+        option.setCoorType("bd09ll");
+        option.setOpenGps(true);
+        option.setNeedDeviceDirect(true);
+        mLocationClient.setLocOption(option);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,  String[] permissions, int[] grantResults) {
+        switch (requestCode){
+            case 1:
+                if(grantResults.length>0){
+                    for(int result:grantResults){
+                        if(result!=PackageManager.PERMISSION_GRANTED){
+                            Toast.makeText(this,"必须同意所有权限才能使用本程序",Toast.LENGTH_SHORT).show();
+                            finish();
+                            return;
+                        }
+                    }
+                    requestLocation();
+                }else {
+                    Toast.makeText(this,"发生未知错误",Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+                break;
+            default:
+        }
+    }
+
+    public class MyLocationListener implements BDLocationListener{
+        @Override
+        public void onReceiveLocation(BDLocation bdLocation) {
+            mCurrentLat = bdLocation.getLatitude();
+            mCurrentLog = bdLocation.getLongitude();
+//            float radius = bdLocation.getRadius();    //获取定位精度，默认值为0.0，加上此句会导致定位有偏差
+
+        }
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -194,6 +315,12 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         }else if(mConnectService == null){
             mConnectService = new BluetoothService(mHandler);
         }
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        mLocationClient.restart();
     }
 
     // 用于从线程获取信息的Handler对象
@@ -235,11 +362,39 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 					String flag = split[1];
                     //System.out.println(sb);
                     //RecDataView.append(sb);
+
                     try{
                         Float upDataear = Float.parseFloat(ear);
-						Float upDataflag = Float.parseFloat(flag);
+						upDataflag = Float.parseFloat(flag);
+                        if(upDataflag == 1.0){
+                            set.setColor(Color.RED);
+                            System.out.println("正在播放音频...");
+                            mMediaPlayer.start();
+
+//                            initMediaPlayer();
+//                            if(! mediaPlayer.isPlaying()){
+//                                preparedListener = new OnPreparedListener() {
+//
+//                                    @Override
+//                                    public void onPrepared(MediaPlayer mp) {
+//                                        mediaPlayer.start();
+//                                        System.out.println("正在播放音频文件...");
+//                                    }
+//                                };
+//                            }
+//                            OverlookButton.setVisibility(VISIBLE);
+//                            LocateButton.setVisibility(VISIBLE);
+                        }else {
+                            set.setColor(ColorTemplate.getHoloBlue());
+//                            OverlookButton.setVisibility(INVISIBLE);
+//                            LocateButton.setVisibility(INVISIBLE);
+//                            set.setCircleColor(Color.WHITE);
+//                            set.setCircleColorHole(Color.WHITE);
+
+                        }
+                        setupListener();
                         uploadDataToServer(upDataear,upDataflag);
-                        addEntry(upDataear);
+                        addEntry(upDataear,upDataflag);
                     }catch (Exception e){
                         e.printStackTrace();
                     }
@@ -281,12 +436,48 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
                     mChart.clearValues();
                     break;
                 case R.id.locate_button:
-                    Intent intent = new Intent(RealtimeAnalysisActivity.this,LocateActivity.class);
-                    System.out.println("准备跳转到LocateActivity");
-                    startActivity(intent);
+                    LatLng ptCenter = new LatLng(mCurrentLat,mCurrentLog); // 获取当前位置的经纬度
+                    PoiParaOption para = new PoiParaOption()
+                            .key("服务区")
+                            .center(ptCenter)
+                            .radius(2000);
+                    try {
+                        BaiduMapPoiSearch.openBaiduMapPoiNearbySearch(para, RealtimeAnalysisActivity.this);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+//                        showDialog();
+                    }
+                case R.id.overlook_button:
+                    break;
             }
         }
     };
+
+//    /**
+//     * 提示未安装百度地图app或app版本过低
+//     */
+//    public void showDialog() {
+//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+//        builder.setMessage("您尚未安装百度地图app或app版本过低，点击确认安装？");
+//        builder.setTitle("提示");
+//        builder.setPositiveButton("确认", new DialogInterface.OnClickListener() {
+//            @Override
+//            public void onClick(DialogInterface dialog, int which) {
+//                dialog.dismiss();
+//                OpenClientUtil.getLatestBaiduMapApp(RealtimeAnalysisActivity.this);
+//            }
+//        });
+//
+//        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+//            @Override
+//            public void onClick(DialogInterface dialog, int which) {
+//                dialog.dismiss();
+//            }
+//        });
+//
+//        builder.create().show();
+//
+//    }
 
     /**
      * 设置自定义按键的监听方法
@@ -294,6 +485,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     private void setupListener(){
         ClearWindow.setOnClickListener(ButtonClickListener);
         LocateButton.setOnClickListener(ButtonClickListener);
+        OverlookButton.setOnClickListener(ButtonClickListener);
     }
 
     @Override
@@ -320,14 +512,23 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
         if(DEBUG) {
             Log.e(TAG, "onDestroy");
         }
+
         // Stop the Bluetooth connection
         if (mConnectService != null) {
             mConnectService.cancelAllBtThread();
         }
         android.os.Process.killProcess(android.os.Process.myPid());
+
+        if(mMediaPlayer != null){
+            mMediaPlayer.stop();
+            mMediaPlayer.release();
+        }
+
+        mLocationClient.stop();
     }
 
 
@@ -390,7 +591,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
     }
 
     private Thread thread;
-    private void addEntry(final float sb){
+    private void addEntry(final float sb,final float upDataflag){
 
         System.out.println("addEntry "+sb);
 
@@ -413,6 +614,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
                         set = createSet();
                         data.addDataSet(set);
                     }
+
 
                     data.addEntry(new Entry(set.getEntryCount(), sb), 0);
                     data.notifyDataChanged();
@@ -470,11 +672,10 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
     private LineDataSet createSet() {
 
-        LineDataSet set = new LineDataSet(null, "EAR");
 
+        set.setCircleColor(Color.RED);
+        set.setCircleColorHole(Color.RED);
         set.setAxisDependency(YAxis.AxisDependency.LEFT);
-        set.setColor(ColorTemplate.getHoloBlue());
-        set.setCircleColor(Color.WHITE);
         set.setLineWidth(2f);
         set.setCircleRadius(2f);
         set.setFillAlpha(65);
@@ -484,6 +685,17 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         set.setValueTextSize(9f);
         set.setDrawValues(false);
         set.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        //根据EAR的不同分级，以不同的颜色标记
+//        if(upDataflag == 1.0){
+//            set.setCircleColor(Color.RED);
+//            set.setCircleColorHole(Color.parseColor("#CD0000"));
+//            set.setColor(Color.parseColor("#CD0000"));
+//        }else {
+//            set.setCircleColor(Color.WHITE);
+//            set.setCircleColorHole(Color.BLUE);
+//            set.setColor(ColorTemplate.getHoloBlue());
+//        }
+
 
         return set;
     }

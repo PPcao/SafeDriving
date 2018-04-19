@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:id="@+id/group1">
+        <item
+            android:id="@+id/item1"
+            android:title="账号资料"/>
+    </group>
+
+    <!--
+    <group android:id="@+id/group2">
+        <item
+            android:id="@+id/item3"
+            android:title="group2 - item1"/>
+    </group>
+
+
+    <item
+        android:id="@+id/item5"
+        android:title="group3">
+        <menu>
+            <item
+                android:id="@+id/item6"
+                android:title="group3 - item1"/>
+            <item
+                android:id="@+id/item7"
+                android:title="group3 - item2"/>
+        </menu>
+    </item>
+    -->
+</menu>

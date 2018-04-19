@@ -17,6 +17,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.android.safedriving.ActivityManager.BaseActivity;
 import com.android.safedriving.HttpUtil.HttpUrlConstant;
 
 import java.io.BufferedReader;
@@ -34,7 +35,7 @@ import static android.text.TextUtils.isEmpty;
  * 1.实现驾驶员登录的功能。
  * 2.此登录页面是启动页面。
  */
-public class LoginLayoutActivity extends AppCompatActivity {
+public class LoginLayoutActivity extends BaseActivity {
     private EditText accountEdit;
     private EditText passwordEdit;
     private Button loginButton;

@@ -26,12 +26,16 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.Toast;
 
+import com.android.safedriving.ActivityManager.ActivityCollector;
+import com.android.safedriving.ActivityManager.BaseActivity;
 import com.android.safedriving.BluetoothHelper.BluetoothService;
 import com.android.safedriving.BluetoothHelper.DeviceListActivity;
 import com.android.safedriving.HttpUtil.HttpUrlConstant;
+import com.android.safedriving.SelfDialogUtil.ExitDialog;
 import com.android.safedriving.SelfDialogUtil.TipDialog;
 import com.baidu.location.BDLocation;
 import com.baidu.location.BDLocationListener;
@@ -77,7 +81,7 @@ import java.util.List;
  * 5.调用百度地图进行POI检索。
  * 6.检测到疲劳状态，播放提示音。
  */
-public class RealtimeAnalysisActivity extends AppCompatActivity implements OnChartValueSelectedListener {
+public class RealtimeAnalysisActivity extends BaseActivity implements OnChartValueSelectedListener {
 
     private static final String TAG = "RAnalysisActivity";
     private static final boolean DEBUG = false;
@@ -124,6 +128,10 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 
     //提示对话框相关
     private TipDialog mTipDialog;
+    private ExitDialog mExitDialog;
+
+    //退出app相关
+    private ImageView mexitImageView;
 
 
     /**
@@ -152,6 +160,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //        ClearWindow = (Button) findViewById(R.id.ClearWindow);
 //        LocateButton = (Button) findViewById(R.id.locate_button);
 //        OverlookButton = (Button) findViewById(R.id.overlook_button);
+        mexitImageView =findViewById(R.id.exit_imageView);
         mFloatingActionButton = findViewById(R.id.fab);
         mImageButton = findViewById(R.id.bluetooth_imageButton);
         setupListener();
@@ -217,6 +226,31 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
         });
         mTipDialog.show();
         isTipDialogShow = true;
+    }
+
+    //退出账号提示对话框相关
+    private void openExitDialog(){
+        mExitDialog = new ExitDialog(RealtimeAnalysisActivity.this);
+        mExitDialog.setTitle("退出当前账号");
+        mExitDialog.setMessage("退出当前账号将直接与监控仪断开连接，下次使用需重新连接监控仪，确定退出？");
+        mExitDialog.setYesOnclickListener("确认退出", new ExitDialog.onYesOnclickListener() {
+            @Override
+            public void onYesClick() {
+                //销毁所有活动，退出APP
+                ActivityCollector.finishAll();
+                android.os.Process.killProcess(android.os.Process.myPid());
+
+                mExitDialog.dismiss();
+            }
+        });
+        mExitDialog.setNoOnclickListener("取消", new ExitDialog.onNoOnclickListener() {
+            @Override
+            public void onNoClick() {
+                //若驾驶员选择忽略提示，则直接隐藏提示框。
+                mExitDialog.dismiss();
+            }
+        });
+        mExitDialog.show();
     }
 
     //滑动菜单相关
@@ -527,6 +561,9 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //                    }
 //                case R.id.overlook_button:
 //                    break;
+                case R.id.exit_imageView:
+                    openExitDialog();
+                    break;
                 case R.id.fab:
                     mChart.clearValues();
                     break;
@@ -598,6 +635,7 @@ public class RealtimeAnalysisActivity extends AppCompatActivity implements OnCha
 //        ClearWindow.setOnClickListener(ButtonClickListener);
 //        LocateButton.setOnClickListener(ButtonClickListener);
 //        OverlookButton.setOnClickListener(ButtonClickListener);
+        mexitImageView.setOnClickListener(ButtonClickListener);
         mFloatingActionButton.setOnClickListener(ButtonClickListener);
         mImageButton.setOnClickListener(ButtonClickListener);
     }
